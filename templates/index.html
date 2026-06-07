@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NBA Stats Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <header class="header">
+    <div class="container">
+      <div class="header-inner">
+        <div class="logo">
+          <span class="logo-ball">&#9900;</span>
+          <span class="logo-text">NBA Stats Hub</span>
+        </div>
+        <nav class="nav-tabs">
+          <button class="tab-btn active" data-tab="scores">Scores</button>
+          <button class="tab-btn" data-tab="standings">Standings</button>
+          <button class="tab-btn" data-tab="leaders">Leaders</button>
+          <button class="tab-btn" data-tab="players">Players</button>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="container">
+
+      <!-- SCORES -->
+      <section id="scores" class="tab-content active">
+        <div class="section-header">
+          <h2>Today's Games</h2>
+          <button class="refresh-btn" onclick="loadScores()">Refresh</button>
+        </div>
+        <div id="scores-grid" class="scores-grid">
+          <div class="loading">Loading scores...</div>
+        </div>
+      </section>
+
+      <!-- STANDINGS -->
+      <section id="standings" class="tab-content">
+        <div class="section-header">
+          <h2>2024-25 Standings</h2>
+        </div>
+        <div class="standings-grid">
+          <div class="standings-conference">
+            <h3 class="conference-title east">Eastern Conference</h3>
+            <div id="east-standings" class="standings-table-wrap">
+              <div class="loading">Loading...</div>
+            </div>
+          </div>
+          <div class="standings-conference">
+            <h3 class="conference-title west">Western Conference</h3>
+            <div id="west-standings" class="standings-table-wrap">
+              <div class="loading">Loading...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LEADERS -->
+      <section id="leaders" class="tab-content">
+        <div class="section-header">
+          <h2>Season Leaders</h2>
+          <div class="stat-selector">
+            <button class="stat-btn active" data-stat="PTS">Points</button>
+            <button class="stat-btn" data-stat="AST">Assists</button>
+            <button class="stat-btn" data-stat="REB">Rebounds</button>
+            <button class="stat-btn" data-stat="STL">Steals</button>
+            <button class="stat-btn" data-stat="BLK">Blocks</button>
+          </div>
+        </div>
+        <div id="leaders-list" class="leaders-grid">
+          <div class="loading">Loading leaders...</div>
+        </div>
+      </section>
+
+      <!-- PLAYERS -->
+      <section id="players" class="tab-content">
+        <div class="section-header">
+          <h2>Player Search</h2>
+        </div>
+        <div class="search-wrap">
+          <input type="text" id="player-search" class="search-input"
+            placeholder="Search active players..." autocomplete="off">
+          <div id="search-results" class="search-results hidden"></div>
+        </div>
+        <div id="player-profile" class="player-profile hidden"></div>
+      </section>
+
+    </div>
+  </main>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>
