@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+
+# Generated local database (rebuild with: python3 load_data.py)
+nba.db
+
+# Environment
+.venv/
+venv/
+
+# Local Claude Code settings
+.claude/

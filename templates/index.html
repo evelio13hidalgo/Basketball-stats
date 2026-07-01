@@ -22,6 +22,7 @@
           <button class="tab-btn" data-tab="standings">Standings</button>
           <button class="tab-btn" data-tab="leaders">Leaders</button>
           <button class="tab-btn" data-tab="players">Players</button>
+          <button class="tab-btn" data-tab="compare">Compare</button>
         </nav>
       </div>
     </div>
@@ -33,7 +34,7 @@
       <!-- SCORES -->
       <section id="scores" class="tab-content active">
         <div class="section-header">
-          <h2>Today's Games</h2>
+          <h2 id="scores-title">Today's Games</h2>
           <button class="refresh-btn" onclick="loadScores()">Refresh</button>
         </div>
         <div id="scores-grid" class="scores-grid">
@@ -44,7 +45,7 @@
       <!-- STANDINGS -->
       <section id="standings" class="tab-content">
         <div class="section-header">
-          <h2>2024-25 Standings</h2>
+          <h2>{{ season }} Standings</h2>
         </div>
         <div class="standings-grid">
           <div class="standings-conference">
@@ -65,7 +66,7 @@
       <!-- LEADERS -->
       <section id="leaders" class="tab-content">
         <div class="section-header">
-          <h2>Season Leaders</h2>
+          <h2>All-Time Leaders</h2>
           <div class="stat-selector">
             <button class="stat-btn active" data-stat="PTS">Points</button>
             <button class="stat-btn" data-stat="AST">Assists</button>
@@ -84,12 +85,37 @@
         <div class="section-header">
           <h2>Player Search</h2>
         </div>
+        <div id="fav-strip" class="fav-strip hidden"></div>
         <div class="search-wrap">
           <input type="text" id="player-search" class="search-input"
-            placeholder="Search active players..." autocomplete="off">
+            placeholder="Search any player since 1947 (e.g. LeBron, Jordan, Bird)..."
+            autocomplete="off">
           <div id="search-results" class="search-results hidden"></div>
         </div>
         <div id="player-profile" class="player-profile hidden"></div>
+      </section>
+
+      <!-- COMPARE -->
+      <section id="compare" class="tab-content">
+        <div class="section-header">
+          <h2>Compare Players</h2>
+        </div>
+        <div class="compare-pickers">
+          <div class="compare-slot">
+            <input type="text" id="compare-search-a" class="search-input compare-a"
+              placeholder="Search player A..." autocomplete="off">
+            <div id="compare-results-a" class="search-results hidden"></div>
+            <div id="compare-chosen-a" class="compare-chosen"></div>
+          </div>
+          <div class="compare-vs">VS</div>
+          <div class="compare-slot">
+            <input type="text" id="compare-search-b" class="search-input compare-b"
+              placeholder="Search player B..." autocomplete="off">
+            <div id="compare-results-b" class="search-results hidden"></div>
+            <div id="compare-chosen-b" class="compare-chosen"></div>
+          </div>
+        </div>
+        <div id="compare-output"></div>
       </section>
 
     </div>

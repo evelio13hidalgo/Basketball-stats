@@ -1,0 +1,850 @@
+/*
+  NBA Stats Hub - styles.
+
+  This file is loaded by index.html via <link rel="stylesheet" href="/static/style.css">.
+  Flask serves anything in the /static folder automatically at the /static URL.
+
+  CSS organisation here, top to bottom:
+    1. Variables (colors/spacing in one place via :root custom properties)
+    2. Base/reset + layout (header, container, tabs)
+    3. Scores grid + game cards (the main feature this round)
+    4. Status badges (live / final / scheduled)
+    5. Empty + loading + error states
+    6. Standings table
+    7. "Coming soon" placeholders
+    8. Small responsive tweaks
+*/
+
+/* 1. Design tokens ------------------------------------------------------- */
+/* Defining colors once as variables means we can re-theme the whole site by
+   editing a few lines, instead of hunting for every hex code. */
+:root {
+  --bg: #0f1115;
+  --surface: #181b22;
+  --surface-2: #20242e;
+  --border: #2a2f3a;
+  --text: #e8eaed;
+  --text-dim: #9aa0ac;
+  --accent: #c8102e;     /* NBA red */
+  --accent-2: #1d428a;   /* NBA blue */
+  --live: #2ecc71;
+  --radius: 12px;
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* 2. Base + layout ------------------------------------------------------- */
+* {
+  box-sizing: border-box;   /* width includes padding+border - far easier math */
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;        /* center the content */
+  padding: 0 20px;
+}
+
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;       /* keep the nav visible while scrolling */
+  top: 0;
+  z-index: 10;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1.25rem;
+}
+
+.logo-ball {
+  color: var(--accent);
+  font-size: 1.4rem;
+}
+
+/* Tab buttons in the header */
+.nav-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tab-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.tab-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.main {
+  padding: 28px 0 60px;
+}
+
+/* Only the active tab's content is shown; the rest are hidden.
+   script.js toggles the "active" class to switch tabs. */
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.refresh-btn {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.refresh-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* 3. Scores grid + game cards ------------------------------------------- */
+/* CSS Grid with auto-fill makes a responsive card grid with zero media
+   queries: cards are at least 300px wide and wrap to new rows as needed. */
+.scores-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.game-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+
+/* Live games get a green left edge so they pop out of the grid. */
+.game-card.is-live {
+  border-left: 4px solid var(--live);
+}
+
+.game-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* One row per team: logo + name (+ record) on the left, score on the right. */
+.team-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.team-logo {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.team-meta {
+  flex: 1;            /* take remaining width so the score sits at the far right */
+  min-width: 0;
+}
+
+.team-name {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;   /* long names get "..." instead of breaking layout */
+}
+
+.team-record {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.team-score {
+  font-size: 1.5rem;
+  font-weight: 800;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* Dim the loser's score on finished games for a subtle visual cue. */
+.team-row.loser .team-name,
+.team-row.loser .team-score {
+  color: var(--text-dim);
+}
+
+.game-card-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+/* 4. Status badges ------------------------------------------------------- */
+.status-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.status-badge.live {
+  background: rgba(46, 204, 113, 0.15);
+  color: var(--live);
+}
+
+/* The little blinking dot next to "LIVE". */
+.status-badge.live .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--live);
+  margin-right: 5px;
+  animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.status-badge.final {
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+
+.status-badge.scheduled {
+  background: rgba(29, 66, 138, 0.25);
+  color: #7aa2e3;
+}
+
+/* 5. Empty / loading / error states ------------------------------------- */
+.loading,
+.empty-state {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 40px 20px;
+  grid-column: 1 / -1;   /* span the full grid width even inside .scores-grid */
+}
+
+.empty-state h3 {
+  color: var(--text);
+  font-size: 1.2rem;
+  margin-bottom: 6px;
+}
+
+.error-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #ff8a8a;
+  background: rgba(200, 16, 46, 0.1);
+  border: 1px solid rgba(200, 16, 46, 0.3);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+/* A subheading used to separate "upcoming" day groups in the scores grid. */
+.day-heading {
+  grid-column: 1 / -1;
+  font-weight: 700;
+  color: var(--text);
+  margin: 8px 0 0;
+  font-size: 1.05rem;
+}
+
+/* 6. Standings table ----------------------------------------------------- */
+.standings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.conference-title {
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--border);
+}
+
+.conference-title.east { border-color: var(--accent-2); }
+.conference-title.west { border-color: var(--accent); }
+
+table.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.standings-table th {
+  text-align: left;
+  color: var(--text-dim);
+  font-weight: 600;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.standings-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.standings-table .team-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.standings-table .mini-logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.standings-table .num {
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* 7. Coming-soon placeholders ------------------------------------------- */
+.coming-soon {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 60px 20px;
+}
+
+.coming-soon .big {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+}
+
+/* Stat selector + search input keep their hooks even if not wired yet. */
+.stat-selector { display: flex; gap: 6px; flex-wrap: wrap; }
+.stat-btn {
+  background: var(--surface-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  font: inherit;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.stat-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.search-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font: inherit;
+  padding: 12px 16px;
+  border-radius: 8px;
+}
+
+.hidden { display: none; }
+
+/* 8. Players tab (search + season table) -------------------------------- */
+/* The search box and its dropdown of results sit in a relatively-positioned
+   wrapper so the results can float just below the input. */
+.search-wrap {
+  position: relative;
+  max-width: 520px;
+  margin-bottom: 24px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* The dropdown list of matching players, layered over the page content. */
+.search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  z-index: 5;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.search-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font: inherit;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.search-item:last-child { border-bottom: none; }
+.search-item:hover { background: var(--surface-2); }
+
+.search-item-name { font-weight: 700; }
+
+.search-item-meta {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.search-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+/* Little gold "HOF" badge next to Hall-of-Famers. */
+.hof-badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  color: #1a1205;
+  background: #f4c430;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-left: 6px;
+}
+
+/* Player profile header (name + bio + career span). */
+.player-header {
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--border);
+}
+
+.player-name {
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.player-bio,
+.player-span {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+/* The season-by-season stat table. Horizontal scroll on small screens so the
+   columns never get crushed. */
+.season-table-wrap {
+  overflow-x: auto;
+}
+
+table.season-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.season-table th {
+  position: sticky;
+  top: 0;
+  text-align: right;
+  color: var(--text-dim);
+  font-weight: 600;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* First two columns (Season, Team) read left-aligned like labels. */
+.season-table th:first-child,
+.season-table th:nth-child(2),
+.season-table td:first-child,
+.season-table td:nth-child(2) {
+  text-align: left;
+}
+
+.season-table td {
+  text-align: right;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.season-table tbody tr:hover { background: var(--surface-2); }
+
+/* Emphasize the points-per-game column - the headline stat. */
+.season-table td.strong { font-weight: 700; color: var(--text); }
+
+/* 9. Liveliness: animations, charts, spotlight, leaders, compare -------- */
+
+/* --- Keyframes --- */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+/* Bars "grow" up from their baseline. transform-box: fill-box makes the
+   transform-origin relative to the bar itself (not the whole SVG). */
+@keyframes growBar {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+/* Line charts draw themselves in by animating the dashed stroke. */
+@keyframes drawLine {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Utility: fade-and-rise in. JS sets an inline animation-delay to stagger
+   sibling elements (cards, rows) for a cascading reveal. */
+.fade-in-up {
+  opacity: 0;
+  animation: fadeInUp 0.45s ease forwards;
+}
+
+/* Active tab content gently fades/rises in when you switch tabs. */
+.tab-content.active {
+  animation: fadeInUp 0.35s ease;
+}
+
+/* Cards lift slightly on hover for a tactile feel. */
+.game-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s;
+}
+.game-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent-2);
+}
+
+/* --- Skeleton loaders --- */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    var(--surface-2) 50%,
+    var(--surface) 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.3s infinite linear;
+  border-radius: 8px;
+}
+.skeleton-row { height: 14px; margin: 10px 0; }
+.skeleton-card { height: 120px; border-radius: var(--radius); }
+
+/* --- SVG charts (career + compare) --- */
+.chart { width: 100%; display: block; }
+
+.chart-bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: growBar 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  transition: opacity 0.15s;
+}
+.chart-bar:hover { opacity: 0.7; }
+
+.chart-baseline { stroke: var(--border); stroke-width: 1; }
+.chart-xlabel { fill: var(--text-dim); font-size: 9px; }
+.chart-ylabel { fill: var(--text-dim); font-size: 10px; }
+
+/* The polyline carries pathLength="1", so normalizing the dash to 1 makes the
+   draw-in animation length-independent. */
+.spark-line {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: drawLine 1.1s ease forwards;
+}
+.spark-dot { transition: r 0.15s; }
+
+.leader-row { cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+.leader-row:hover { border-color: var(--accent-2); transform: translateX(2px); }
+
+/* Toggle buttons that switch which stat the career chart shows. */
+.chart-toggle { display: flex; gap: 6px; margin: 18px 0 8px; flex-wrap: wrap; }
+.chart-toggle-btn {
+  background: var(--surface-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.chart-toggle-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+/* Legend used by the compare chart. */
+.chart-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; }
+.legend-item { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 0.85rem; }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+/* --- All-time leaders (bars) --- */
+.leaders-grid { display: flex; flex-direction: column; gap: 8px; }
+
+.leader-row {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.leader-rank {
+  font-weight: 800;
+  color: var(--text-dim);
+  text-align: center;
+  font-size: 0.95rem;
+}
+.leader-row.rank-1 .leader-rank { color: #f4c430; }   /* gold */
+.leader-row.rank-2 .leader-rank { color: #c7ccd4; }   /* silver */
+.leader-row.rank-3 .leader-rank { color: #cd7f32; }   /* bronze */
+.leader-row.rank-1 { border-color: rgba(244, 196, 48, 0.5); }
+
+.leader-main { min-width: 0; }
+.leader-name {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.leader-sub { font-size: 0.75rem; color: var(--text-dim); }
+.leader-bar-track {
+  margin-top: 6px;
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.leader-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  border-radius: 999px;
+  width: 0;
+  transition: width 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.leader-value { font-weight: 800; font-size: 1.05rem; white-space: nowrap; }
+
+/* --- Home spotlight (offseason) --- */
+.spotlight { grid-column: 1 / -1; }
+.spotlight-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.spotlight-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.spotlight-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.spotlight-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+.shuffle-btn {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.4s;
+}
+.shuffle-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.shuffle-btn.spin { transform: rotate(360deg); }
+
+.legend-name { font-size: 1.5rem; font-weight: 800; }
+.legend-years { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 14px; }
+.legend-statline {
+  display: flex;
+  gap: 22px;
+  margin: 16px 0;
+}
+.legend-statline .ls { text-align: center; }
+.legend-statline .ls-num { font-size: 1.7rem; font-weight: 800; line-height: 1; }
+.legend-statline .ls-lab { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.legend-peak { font-size: 0.85rem; color: var(--text-dim); }
+.legend-peak strong { color: var(--text); }
+.legend-link {
+  display: inline-block;
+  margin-top: 12px;
+  color: #7aa2e3;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.legend-link:hover { text-decoration: underline; }
+
+/* --- Favorites --- */
+.fav-strip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.fav-strip-label { font-size: 0.8rem; color: var(--text-dim); font-weight: 600; }
+.fav-chip {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.fav-chip:hover { border-color: var(--accent); }
+
+.fav-star {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--text-dim);
+  transition: transform 0.15s, color 0.15s;
+}
+.fav-star:hover { transform: scale(1.2); }
+.fav-star.active { color: #f4c430; }
+
+.player-name-row { display: flex; align-items: center; gap: 10px; }
+
+/* --- Compare tab --- */
+.compare-pickers {
+  display: grid;
+  grid-template-columns: 1fr 40px 1fr;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 22px;
+}
+.compare-vs {
+  align-self: center;
+  text-align: center;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+.compare-slot { position: relative; }
+.compare-slot .search-results { max-height: 280px; }
+.compare-chosen {
+  margin-top: 8px;
+  font-weight: 700;
+  color: var(--text);
+}
+.compare-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.compare-table th, .compare-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); }
+.compare-table td:first-child { text-align: left; color: var(--text-dim); font-weight: 600; }
+.compare-table td.cval { text-align: center; font-weight: 700; font-size: 1.05rem; }
+.compare-table td.cwin { color: var(--live); }
+.compare-table th { color: var(--text-dim); font-weight: 700; }
+.compare-a { color: #4aa3ff; }
+.compare-b { color: #ff6b6b; }
+
+/* 10. Responsive --------------------------------------------------------- */
+@media (max-width: 700px) {
+  .standings-grid,
+  .spotlight-grid {
+    grid-template-columns: 1fr;   /* stack on phones */
+  }
+  .compare-pickers { grid-template-columns: 1fr; }
+  .compare-vs { display: none; }
+}
