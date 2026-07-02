@@ -19,17 +19,20 @@
 /* Defining colors once as variables means we can re-theme the whole site by
    editing a few lines, instead of hunting for every hex code. */
 :root {
-  --bg: #0f1115;
-  --surface: #181b22;
-  --surface-2: #20242e;
-  --border: #2a2f3a;
-  --text: #e8eaed;
-  --text-dim: #9aa0ac;
-  --accent: #c8102e;     /* NBA red */
-  --accent-2: #1d428a;   /* NBA blue */
-  --live: #2ecc71;
-  --radius: 12px;
-  --shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  --bg: #140a20;         /* deep arcade purple-black */
+  --surface: #1e1232;
+  --surface-2: #2b1b47;
+  --border: #3f2a63;
+  --text: #f2eefb;
+  --text-dim: #a89bc7;
+  --accent: #ff5f1f;     /* jam-fire orange */
+  --accent-2: #00d4ff;   /* electric cyan */
+  --gold: #ffd60a;       /* NBA Jam title yellow */
+  --live: #3dfc7b;
+  --radius: 10px;
+  --shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);       /* hard 90s drop shadow */
+  --fire: linear-gradient(90deg, #ffd60a, #ff5f1f, #ff1e56);  /* he's on fire */
+  --display: "Bungee", "Inter", sans-serif;      /* chunky arcade display font */
 }
 
 /* 2. Base + layout ------------------------------------------------------- */
@@ -41,10 +44,30 @@
 
 body {
   font-family: "Inter", system-ui, sans-serif;
-  background: var(--bg);
+  /* Arcade glow: cyan haze from the top, fire haze from the bottom. */
+  background:
+    radial-gradient(1100px 480px at 50% -10%, rgba(0, 212, 255, 0.10), transparent 60%),
+    radial-gradient(900px 420px at 50% 112%, rgba(255, 95, 31, 0.12), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* CRT scanline overlay, same trick as the portfolio site. It's fixed and
+   ignores the mouse, so it just tints every other pixel row slightly. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 2px,
+    rgba(0, 0, 0, 0.10) 2px 4px
+  );
 }
 
 .container {
@@ -55,7 +78,9 @@ body {
 
 .header {
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  /* border-image lets the bottom border be a gradient instead of one color. */
+  border-bottom: 3px solid;
+  border-image: var(--fire) 1;
   position: sticky;       /* keep the nav visible while scrolling */
   top: 0;
   z-index: 10;
@@ -74,12 +99,22 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-weight: 800;
-  font-size: 1.25rem;
+  font-family: var(--display);
+  font-size: 1.15rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* NBA Jam title treatment: yellow-to-fire gradient clipped to the letters. */
+.logo-text {
+  background: var(--fire);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.6));
 }
 
 .logo-ball {
-  color: var(--accent);
   font-size: 1.4rem;
 }
 
@@ -92,14 +127,16 @@ body {
 
 .tab-btn {
   background: transparent;
-  border: none;
+  border: 2px solid transparent;
   color: var(--text-dim);
-  font: inherit;
-  font-weight: 600;
-  padding: 8px 16px;
-  border-radius: 8px;
+  font-family: var(--display);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 14px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
 }
 
 .tab-btn:hover {
@@ -107,9 +144,12 @@ body {
   color: var(--text);
 }
 
+/* Active tab = lit arcade button: fire gradient, dark text, hard shadow. */
 .tab-btn.active {
-  background: var(--accent);
-  color: #fff;
+  background: var(--fire);
+  color: #1a0b00;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.5);
+  transform: translateY(-1px);
 }
 
 .main {
@@ -136,26 +176,38 @@ body {
 }
 
 .section-header h2 {
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-family: var(--display);
+  font-size: 1.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transform: skewX(-6deg);            /* slight italic lean, very 90s */
+  text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.55);
 }
 
 .refresh-btn {
   background: var(--surface-2);
   color: var(--text);
-  border: 1px solid var(--border);
-  font: inherit;
-  font-weight: 600;
-  padding: 8px 18px;
-  border-radius: 8px;
+  border: 2px solid var(--border);
+  font-family: var(--display);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+  transition: background 0.15s, border-color 0.15s, transform 0.1s, box-shadow 0.1s;
 }
 
 .refresh-btn:hover {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+
+/* Pressing the button "pushes it in": it moves into its own shadow. */
+.refresh-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.45);
 }
 
 /* 3. Scores grid + game cards ------------------------------------------- */
@@ -169,15 +221,16 @@ body {
 
 .game-card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   border-radius: var(--radius);
   padding: 16px 18px;
   box-shadow: var(--shadow);
 }
 
-/* Live games get a green left edge so they pop out of the grid. */
+/* Live games are ON FIRE: orange edge + glow so they pop out of the grid. */
 .game-card.is-live {
-  border-left: 4px solid var(--live);
+  border-left: 4px solid var(--accent);
+  box-shadow: var(--shadow), 0 0 14px rgba(255, 95, 31, 0.35);
 }
 
 .game-card-top {
@@ -220,10 +273,11 @@ body {
 }
 
 .team-score {
-  font-size: 1.5rem;
-  font-weight: 800;
-  min-width: 40px;
+  font-family: var(--display);          /* scoreboard digits */
+  font-size: 1.35rem;
+  min-width: 48px;
   text-align: right;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
 }
 
 /* Dim the loser's score on finished games for a subtle visual cue. */
@@ -251,8 +305,9 @@ body {
 }
 
 .status-badge.live {
-  background: rgba(46, 204, 113, 0.15);
-  color: var(--live);
+  background: rgba(255, 95, 31, 0.18);
+  color: var(--gold);
+  border: 1px solid rgba(255, 95, 31, 0.5);
 }
 
 /* The little blinking dot next to "LIVE". */
@@ -261,7 +316,7 @@ body {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--live);
+  background: var(--gold);
   margin-right: 5px;
   animation: pulse 1.2s infinite;
 }
@@ -323,10 +378,14 @@ body {
 }
 
 .conference-title {
-  font-size: 1.1rem;
+  font-family: var(--display);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   margin-bottom: 12px;
   padding-bottom: 6px;
-  border-bottom: 2px solid var(--border);
+  border-bottom: 3px solid var(--border);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
 }
 
 .conference-title.east { border-color: var(--accent-2); }
@@ -489,8 +548,10 @@ table.standings-table {
 }
 
 .player-name {
-  font-size: 1.6rem;
-  font-weight: 800;
+  font-family: var(--display);
+  font-size: 1.45rem;
+  text-transform: uppercase;
+  text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.55);
 }
 
 .player-bio,
@@ -702,7 +763,7 @@ table.season-table {
 }
 .leader-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  background: var(--fire);   /* stat bars literally fill with fire */
   border-radius: 999px;
   width: 0;
   transition: width 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -750,7 +811,12 @@ table.season-table {
 .shuffle-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 .shuffle-btn.spin { transform: rotate(360deg); }
 
-.legend-name { font-size: 1.5rem; font-weight: 800; }
+.legend-name {
+  font-family: var(--display);
+  font-size: 1.3rem;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.55);
+}
 .legend-years { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 14px; }
 .legend-statline {
   display: flex;
@@ -758,7 +824,7 @@ table.season-table {
   margin: 16px 0;
 }
 .legend-statline .ls { text-align: center; }
-.legend-statline .ls-num { font-size: 1.7rem; font-weight: 800; line-height: 1; }
+.legend-statline .ls-num { font-family: var(--display); font-size: 1.5rem; line-height: 1; text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5); }
 .legend-statline .ls-lab { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
 .legend-peak { font-size: 0.85rem; color: var(--text-dim); }
 .legend-peak strong { color: var(--text); }
@@ -820,8 +886,11 @@ table.season-table {
 .compare-vs {
   align-self: center;
   text-align: center;
-  font-weight: 800;
-  color: var(--text-dim);
+  font-family: var(--display);
+  font-size: 1.3rem;
+  color: var(--gold);
+  transform: skewX(-8deg);
+  text-shadow: 3px 3px 0 rgba(255, 30, 86, 0.6);   /* red offset, fight-screen style */
 }
 .compare-slot { position: relative; }
 .compare-slot .search-results { max-height: 280px; }
