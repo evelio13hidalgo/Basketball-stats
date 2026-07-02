@@ -993,6 +993,20 @@ table.season-table {
 /* Spelled-out positions ("SF - Small Forward") stay on one line. */
 .roster-table .pos { white-space: nowrap; }
 
+/* Red injury tag next to a player's name: DTD (day-to-day) or OUT. */
+.injury-badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  color: #fff;
+  background: #c8102e;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-left: 6px;
+}
+
 /* Player identity photos in the roster. Circle-cropped like a trading card. */
 .roster-headshot {
   width: 34px;

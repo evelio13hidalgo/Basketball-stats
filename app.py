@@ -21,6 +21,7 @@ middleman / proxy" pattern. It keeps the frontend simple and lets us reshape
 the data before it ever reaches the page.
 """
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 import os
 import sqlite3
@@ -51,6 +52,11 @@ ESPN_TEAMS = (
 # {team_id} is filled in per request, e.g. .../teams/14/roster for the Heat.
 ESPN_ROSTER = (
     "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{team_id}/roster"
+)
+# ESPN's lower-level "core" API. Unlike the roster feed above, this one knows
+# each player's draft history. One request per athlete id.
+ESPN_ATHLETE = (
+    "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/athletes/{athlete_id}"
 )
 
 # Local SQLite database of historical player data (every player/season since
@@ -538,6 +544,29 @@ def get_teams():
         return jsonify({"error": f"Could not reach ESPN: {e}"}), 502
 
 
+def _fetch_draft(athlete_id):
+    """Draft year/round/pick for one player, from ESPN's core API.
+
+    Returns None for undrafted players AND on any network hiccup - a missing
+    draft line should never take down the whole roster page.
+    """
+    try:
+        response = requests.get(
+            ESPN_ATHLETE.format(athlete_id=athlete_id), timeout=10
+        )
+        response.raise_for_status()
+        draft = response.json().get("draft")
+        if not draft:
+            return None  # undrafted
+        return {
+            "year": draft.get("year"),
+            "round": draft.get("round"),
+            "pick": draft.get("selection"),
+        }
+    except requests.RequestException:
+        return None
+
+
 @app.route("/api/teams/<team_id>")
 def team_detail(team_id):
     """One team's current roster (from ESPN) + franchise history (local DB).
@@ -566,6 +595,10 @@ def team_detail(team_id):
             college = athlete.get("college") or {}
             headshot = athlete.get("headshot") or {}
             experience = athlete.get("experience") or {}
+            # contracts[] and injuries[] are often empty lists; `or [{}]`
+            # swaps an empty list for one empty dict so .get() stays safe.
+            contract = (athlete.get("contracts") or [{}])[0]
+            injury = (athlete.get("injuries") or [{}])[0]
             players.append({
                 "id": athlete.get("id"),
                 "name": athlete.get("fullName", ""),
@@ -577,8 +610,27 @@ def team_detail(team_id):
                 "college": college.get("shortName") or college.get("name", ""),
                 "headshot": headshot.get("href", ""),
                 "experience": experience.get("years", 0),
+                "salary": contract.get("salary"),
+                "injury": injury.get("status", ""),   # "Day-To-Day"/"Out"/""
             })
         players.sort(key=lambda p: p["name"])
+
+        # Look up each player's draft pick. That's one extra ESPN request per
+        # player, so two tricks keep it fast: (1) a thread pool fires ~8
+        # requests at once instead of one after another, and (2) each result
+        # is cached for a week (a player's draft history never changes), so
+        # only the FIRST view of a team pays the cost.
+        def draft_for(player):
+            return get_cached(
+                f"draft_{player['id']}",
+                lambda: _fetch_draft(player["id"]),
+                ttl=604800,
+            )
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            drafts = list(pool.map(draft_for, players))
+        for player, draft in zip(players, drafts):
+            player["draft"] = draft
 
         # Upgrade ESPN's generic G/F labels to real positions (PG/SG/SF/PF)
         # from the local database. Players we can't match - mostly rookies who

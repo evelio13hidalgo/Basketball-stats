@@ -692,6 +692,31 @@ function positionLabel(code) {
   return full ? `${code} - ${full}` : code || "-";
 }
 
+// "2017 R1 #14" - draft year, round, and overall pick.
+function draftLabel(d) {
+  if (!d || !d.year) return "Undrafted";
+  return `${d.year} R${d.round} #${d.pick}`;
+}
+
+// Salaries arrive as raw dollars (49500000); show them the way sports media
+// does: "$49.5M", or "$850K" for the rare sub-million deal.
+function salaryLabel(v) {
+  if (!v) return "-";
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
+  return `$${Math.round(v / 1e3)}K`;
+}
+
+// Years in the league; 0 years = rookie.
+function expLabel(years) {
+  return years ? `${years} yr` : "R";
+}
+
+// Compact injury tag: ESPN's "Day-To-Day" becomes the familiar "DTD".
+function injuryShort(status) {
+  if (!status) return "";
+  return status === "Day-To-Day" ? "DTD" : status.toUpperCase();
+}
+
 // One roster row: headshot photo, name, and the bio columns. ESPN hosts a
 // real photo for nearly every current player; if one is missing we show a
 // little basketball instead (onerror catches broken image URLs too).
@@ -700,15 +725,23 @@ function rosterRowHTML(p) {
     ? `<img class="roster-headshot" src="${esc(p.headshot)}" alt=""
          loading="lazy" onerror="this.outerHTML='<span class=\\'roster-headshot roster-headshot-blank\\'>&#127936;</span>'">`
     : `<span class="roster-headshot roster-headshot-blank">&#127936;</span>`;
+  const injury = p.injury
+    ? ` <span class="injury-badge" title="${esc(p.injury)}">${esc(
+        injuryShort(p.injury)
+      )}</span>`
+    : "";
   return `
     <tr>
       <td class="num">${esc(p.jersey || "-")}</td>
-      <td><div class="team-cell">${photo}<span>${esc(p.name)}</span></div></td>
+      <td><div class="team-cell">${photo}<span>${esc(p.name)}${injury}</span></div></td>
       <td class="pos">${esc(positionLabel(p.position))}</td>
       <td class="num">${esc(fmt(p.age))}</td>
       <td class="num">${esc(p.height || "-")}</td>
       <td class="num">${esc(p.weight || "-")}</td>
       <td>${esc(p.college || "-")}</td>
+      <td class="pos">${esc(draftLabel(p.draft))}</td>
+      <td class="num">${esc(salaryLabel(p.salary))}</td>
+      <td class="num">${esc(expLabel(p.experience))}</td>
     </tr>`;
 }
 
@@ -786,6 +819,7 @@ function teamPageHTML(data, meta) {
                 <th class="num">#</th><th>Player</th><th>Position</th>
                 <th class="num">Age</th><th class="num">Ht</th>
                 <th class="num">Wt</th><th>College</th>
+                <th>Draft</th><th class="num">Salary</th><th class="num">Exp</th>
               </tr>
             </thead>
             <tbody>${data.roster.map(rosterRowHTML).join("")}</tbody>
