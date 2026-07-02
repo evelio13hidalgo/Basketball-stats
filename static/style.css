@@ -990,6 +990,9 @@ table.season-table {
    crushing the columns. */
 .standings-table-wrap { overflow-x: auto; }
 
+/* Spelled-out positions ("SF - Small Forward") stay on one line. */
+.roster-table .pos { white-space: nowrap; }
+
 /* Player identity photos in the roster. Circle-cropped like a trading card. */
 .roster-headshot {
   width: 34px;

@@ -673,6 +673,25 @@ async function openTeam(teamId) {
   }
 }
 
+// ESPN abbreviates positions; spell them out so the roster reads like a
+// broadcast graphic ("SF - Small Forward"). Some players are listed with
+// just the generic "G" or "F", so those are mapped too. If ESPN ever sends
+// a code we don't know, we fall back to showing the raw code by itself.
+const POSITION_NAMES = {
+  PG: "Point Guard",
+  SG: "Shooting Guard",
+  SF: "Small Forward",
+  PF: "Power Forward",
+  C: "Center",
+  G: "Guard",
+  F: "Forward",
+};
+
+function positionLabel(code) {
+  const full = POSITION_NAMES[code];
+  return full ? `${code} - ${full}` : code || "-";
+}
+
 // One roster row: headshot photo, name, and the bio columns. ESPN hosts a
 // real photo for nearly every current player; if one is missing we show a
 // little basketball instead (onerror catches broken image URLs too).
@@ -685,7 +704,7 @@ function rosterRowHTML(p) {
     <tr>
       <td class="num">${esc(p.jersey || "-")}</td>
       <td><div class="team-cell">${photo}<span>${esc(p.name)}</span></div></td>
-      <td class="num">${esc(p.position || "-")}</td>
+      <td class="pos">${esc(positionLabel(p.position))}</td>
       <td class="num">${esc(fmt(p.age))}</td>
       <td class="num">${esc(p.height || "-")}</td>
       <td class="num">${esc(p.weight || "-")}</td>
@@ -764,7 +783,7 @@ function teamPageHTML(data, meta) {
           <table class="standings-table roster-table">
             <thead>
               <tr>
-                <th class="num">#</th><th>Player</th><th class="num">Pos</th>
+                <th class="num">#</th><th>Player</th><th>Position</th>
                 <th class="num">Age</th><th class="num">Ht</th>
                 <th class="num">Wt</th><th>College</th>
               </tr>
