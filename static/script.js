@@ -40,6 +40,7 @@ tabButtons.forEach((btn) => {
     // Lazy-load each tab's data the first time it's opened.
     if (!loadedTabs.has(target)) {
       loadedTabs.add(target);
+      if (target === "scores") loadScores();
       if (target === "standings") loadStandings();
       if (target === "teams") loadTeamsGrid();
       if (target === "titles") loadTitles();
@@ -517,15 +518,18 @@ function legendCardHTML(l) {
     )}')">View full career &rarr;</span>`;
 }
 
-// Reroll the featured legend (just the one panel, not the whole page).
+// Reroll the featured legend (just the one panel, not the whole page). The
+// card lives in two places (home dashboard + offseason scores spotlight), so
+// we replace whichever panel the clicked button sits inside, rather than
+// hunting for a fixed id.
 async function shuffleLegend(btn) {
   btn.classList.add("spin");
+  const panel =
+    btn.closest(".spotlight-panel") || document.getElementById("legend-panel");
   try {
     const data = await fetch("/api/legends/random").then((r) => r.json());
-    if (data && data.legend) {
-      document.getElementById("legend-panel").innerHTML = legendCardHTML(
-        data.legend
-      );
+    if (data && data.legend && panel) {
+      panel.innerHTML = legendCardHTML(data.legend);
     }
   } catch {
     /* ignore - keep the current legend on a hiccup */
@@ -1419,7 +1423,229 @@ function renderCompare() {
 }
 
 /* ---------------------------------------------------------------------------
+   Home dashboard - the welcome screen
+   --------------------------------------------------------------------------- */
+const dashboardEl = document.getElementById("dashboard");
+
+// Switch to another tab programmatically (clicking the button reuses all the
+// normal tab logic, including lazy-loading).
+function gotoTab(name) {
+  const btn = document.querySelector(`.tab-btn[data-tab="${name}"]`);
+  if (btn) btn.click();
+}
+
+// Jump from the dashboard to one team's page: switch tabs, then open it.
+function openTeamFromDash(teamId) {
+  gotoTab("teams");
+  openTeam(teamId);
+}
+
+async function loadDashboard() {
+  dashboardEl.innerHTML = skeletonLines(10);
+  try {
+    // Fire every request at once - they're independent - and wait for all.
+    const [dash, scores, standings, legend] = await Promise.all([
+      fetch("/api/dashboard").then((r) => r.json()),
+      fetch("/api/scores").then((r) => r.json()),
+      fetch("/api/standings").then((r) => r.json()),
+      fetch("/api/legends/random").then((r) => r.json()),
+      ensureTeams(), // populates teamsCache for logos/colors
+    ]);
+
+    // If there are no games today (offseason), show the next game day.
+    let games = scores.games || [];
+    let gamesLabel = "Today's Games";
+    if (!games.length) {
+      const upcoming = await fetch("/api/upcoming").then((r) => r.json());
+      if (upcoming.found && upcoming.days.length) {
+        games = upcoming.days[0].games;
+        gamesLabel = `Next Games &middot; ${formatDayLabel(upcoming.days[0].date)}`;
+      }
+    }
+
+    dashboardEl.innerHTML = dashboardHTML(dash, games, gamesLabel, standings, legend);
+  } catch (err) {
+    dashboardEl.innerHTML = `<div class="error-state">${esc(err.message)}</div>`;
+  }
+}
+
+function dashboardHTML(dash, games, gamesLabel, standings, legend) {
+  return `
+    ${champBannerHTML(dash.champion)}
+    <div class="dash-grid">
+
+      <div class="spotlight-panel dash-wide">
+        <div class="spotlight-head">
+          <span class="spotlight-eyebrow">${gamesLabel}</span>
+          <span class="legend-link" onclick="gotoTab('scores')">Full scores &rarr;</span>
+        </div>
+        <div class="dash-games">${
+          games.length
+            ? games.map(miniGameHTML).join("")
+            : `<div class="loading">No games scheduled.</div>`
+        }</div>
+      </div>
+
+      <div class="spotlight-panel">
+        <div class="spotlight-head">
+          <span class="spotlight-eyebrow">Standings</span>
+          <span class="legend-link" onclick="gotoTab('standings')">Full standings &rarr;</span>
+        </div>
+        <div class="dash-standings">
+          ${miniStandingsHTML("East", standings.east)}
+          ${miniStandingsHTML("West", standings.west)}
+        </div>
+      </div>
+
+      <div class="spotlight-panel">
+        <div class="spotlight-head">
+          <span class="spotlight-eyebrow">&#127874; Born Today</span>
+        </div>
+        ${birthdaysHTML(dash.birthdays)}
+      </div>
+
+      <div class="spotlight-panel">
+        <div class="spotlight-head">
+          <span class="spotlight-eyebrow">&#128293; Stat of the Day</span>
+        </div>
+        ${statOfDayHTML(dash.stat_of_day)}
+      </div>
+
+      <div class="spotlight-panel">
+        ${
+          legend && legend.legend
+            ? legendCardHTML(legend.legend)
+            : `<div class="loading">No legend today.</div>`
+        }
+      </div>
+
+      <div class="spotlight-panel dash-wide">
+        <div class="spotlight-head">
+          <span class="spotlight-eyebrow">&#11088; Your Favorites</span>
+        </div>
+        ${dashFavoritesHTML()}
+      </div>
+
+    </div>`;
+}
+
+// The hero banner: reigning champion in their own colors. Clicking it opens
+// the team's page.
+function champBannerHTML(c) {
+  if (!c) return "";
+  const team = c.franchise ? teamByAbbr(c.franchise) : null;
+  return `
+    <div class="champ-banner fade-in-up"
+      ${team ? `style="--team-color:#${esc(team.color)}"` : ""}
+      ${team ? `onclick="openTeamFromDash('${esc(team.id)}')"` : ""}>
+      ${team ? `<img class="champ-logo" src="${esc(team.logo)}" alt="">` : ""}
+      <div>
+        <div class="spotlight-eyebrow">&#127942; ${esc(c.year)} NBA Champions</div>
+        <div class="champ-name">${esc(c.champion)}</div>
+        <div class="leader-sub">Defeated the ${esc(c.runner_up)} ${esc(
+    c.result
+  )} in the Finals</div>
+      </div>
+    </div>`;
+}
+
+// A compact scoreboard card: two team lines + status. Scores only show once
+// the game has started (same rule as the big score cards).
+function miniGameHTML(g) {
+  const started = g.isLive || g.isFinal;
+  const line = (t) => `
+    <div class="mini-team">
+      <img src="${esc(t.logo)}" alt="">
+      <span>${esc(t.abbreviation)}</span>
+      <strong>${started ? esc(t.score || "0") : ""}</strong>
+    </div>`;
+  return `
+    <div class="mini-game ${g.isLive ? "is-live" : ""}">
+      ${line(g.away)}
+      ${line(g.home)}
+      <div class="mini-status">${esc(
+        g.isScheduled ? formatStartTime(g.startTime) : g.statusDetail
+      )}</div>
+    </div>`;
+}
+
+// Top three of one conference, medal-ranked.
+function miniStandingsHTML(label, rows) {
+  const top = (rows || []).slice(0, 3);
+  return `
+    <div class="mini-standings">
+      <div class="mini-standings-title">${esc(label)}</div>
+      ${top
+        .map(
+          (t, i) => `
+        <div class="mini-rank-row">
+          <span class="leader-rank rank-${i + 1}">${i + 1}</span>
+          <img class="mini-logo" src="${esc(t.logo)}" alt="">
+          <span class="mini-rank-name">${esc(t.abbreviation)}</span>
+          <span class="mini-rank-rec">${esc(t.wins)}-${esc(t.losses)}</span>
+        </div>`
+        )
+        .join("")}
+    </div>`;
+}
+
+function birthdaysHTML(players) {
+  if (!players || !players.length) {
+    return `<div class="loading">No NBA birthdays today.</div>`;
+  }
+  return `<div class="bday-list">${players
+    .map((p) => {
+      const year = (p.birth_date || "").slice(0, 4);
+      return `
+      <div class="bday-card" onclick="openPlayer('${esc(p.player_id)}')">
+        ${playerPhotoHTML(p.player_id, "player-photo bday-photo")}
+        <div>
+          <div class="bday-name">${esc(p.name)}${
+        p.hof ? ' <span class="hof-badge">HOF</span>' : ""
+      }</div>
+          <div class="leader-sub">b. ${esc(year)} &middot; ${esc(
+        p.from_year
+      )}&ndash;${esc(p.to_year)}</div>
+        </div>
+      </div>`;
+    })
+    .join("")}</div>`;
+}
+
+function statOfDayHTML(s) {
+  if (!s) return `<div class="loading">No stat today.</div>`;
+  return `
+    <div class="stat-day">
+      <div class="stat-day-num">${esc(s.value)} <span>${esc(s.label)}</span></div>
+      <div class="stat-day-text">
+        <span class="legend-link" onclick="openPlayer('${esc(
+          s.player_id
+        )}')">${esc(s.name)}</span>
+        averaged that over the ${esc(seasonLabel(s.season))} season (${esc(
+    s.team || ""
+  )}) - one of the 100 greatest single seasons ever.
+      </div>
+    </div>`;
+}
+
+function dashFavoritesHTML() {
+  const favs = getFavorites();
+  if (!favs.length) {
+    return `<div class="loading">Star players in the Players tab and they'll show up here.</div>`;
+  }
+  return `<div class="fav-strip">${favs
+    .map(
+      (f) =>
+        `<button class="fav-chip" onclick="openPlayer('${esc(f.id)}')">${esc(
+          f.name
+        )}</button>`
+    )
+    .join("")}</div>`;
+}
+
+/* ---------------------------------------------------------------------------
    Kick everything off
    --------------------------------------------------------------------------- */
-// Load the Scores tab as soon as the page is ready.
-loadScores();
+// The Home dashboard is the welcome screen; other tabs lazy-load on click.
+loadedTabs.add("home");
+loadDashboard();

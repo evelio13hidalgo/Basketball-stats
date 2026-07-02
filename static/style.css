@@ -1101,6 +1101,145 @@ table.season-table {
   .titles-grid { grid-template-columns: 1fr; }
 }
 
+/* 13. Home dashboard ------------------------------------------------------ */
+/* Reigning-champion hero banner, tinted with the champ's own team color. */
+.champ-banner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background:
+    linear-gradient(100deg, var(--team-color, var(--accent)) -60%, var(--surface) 55%);
+  border: 2px solid var(--team-color, var(--border));
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s;
+}
+.champ-banner:hover { transform: translateY(-2px); }
+
+.champ-logo {
+  width: 76px;
+  height: 76px;
+  object-fit: contain;
+  filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, 0.5));
+}
+
+.champ-name {
+  font-family: var(--display);
+  font-size: 1.6rem;
+  text-transform: uppercase;
+  text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.55);
+  margin: 2px 0;
+}
+
+/* Panel grid: two columns; "wide" panels (games, favorites) span both. */
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.dash-wide { grid-column: 1 / -1; }
+
+/* Mini scoreboards inside the games strip. */
+.dash-games {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.mini-game {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.mini-game.is-live {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(255, 95, 31, 0.3);
+}
+
+.mini-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+.mini-team img { width: 20px; height: 20px; object-fit: contain; }
+.mini-team strong {
+  margin-left: auto;
+  font-family: var(--display);
+  font-size: 0.9rem;
+}
+
+.mini-status {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+/* Top-3 standings snapshot: East and West side by side. */
+.dash-standings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.mini-standings-title {
+  font-family: var(--display);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.mini-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+}
+.mini-rank-row .leader-rank { font-size: 0.85rem; min-width: 16px; }
+.mini-rank-name { font-weight: 700; }
+.mini-rank-rec { margin-left: auto; color: var(--text-dim); font-size: 0.85rem; }
+
+/* Born-today cards: small photo + name, clickable. */
+.bday-list { display: flex; flex-direction: column; gap: 10px; }
+
+.bday-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 4px 6px;
+  transition: background 0.15s;
+}
+.bday-card:hover { background: var(--surface-2); }
+
+.bday-photo { width: 40px; height: 54px; font-size: 1.2rem; }
+
+.bday-name { font-weight: 700; }
+
+/* Stat of the day: one huge gold number, then the story under it. */
+.stat-day-num {
+  font-family: var(--display);
+  font-size: 2.4rem;
+  color: var(--gold);
+  text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.55);
+  line-height: 1.1;
+}
+.stat-day-num span { font-size: 1.1rem; }
+
+.stat-day-text {
+  margin-top: 10px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
 /* 10. Responsive --------------------------------------------------------- */
 @media (max-width: 700px) {
   .standings-grid,
@@ -1109,6 +1248,7 @@ table.season-table {
   }
   .compare-pickers { grid-template-columns: 1fr; }
   .compare-vs { display: none; }
+  .dash-grid { grid-template-columns: 1fr; }   /* stack dashboard panels */
 }
 
 @media (max-width: 900px) {

@@ -570,6 +570,74 @@ def get_championships():
     return jsonify({"championships": CHAMPIONSHIPS})
 
 
+# The "stat of the day" rotates between these categories by day of year, so
+# Monday might feature a scoring season and Tuesday a rebounding one.
+STAT_OF_DAY_CATEGORIES = [
+    ("points", "PPG"),
+    ("rebounds", "RPG"),
+    ("assists", "APG"),
+]
+
+
+@app.route("/api/dashboard")
+def get_dashboard():
+    """Everything the home dashboard needs from LOCAL data, in one call:
+
+        {
+          "champion":    <newest CHAMPIONSHIPS entry>,
+          "birthdays":   [ players born on today's month+day, best first ],
+          "stat_of_day": { name, player_id, season, team, value, label }
+        }
+
+    Scores/standings arrive via their existing endpoints; this one only adds
+    the pieces no other route provides. Both extras are DETERMINISTIC per
+    calendar day (not random), so the dashboard looks the same all day and
+    changes overnight - like a real "today in basketball" page.
+    """
+    today = date.today()
+    payload = {"champion": CHAMPIONSHIPS[0]}
+
+    try:
+        # strftime('%m-%d', ...) works because birth_date is stored as ISO
+        # text ("1963-02-17"); matching month+day finds birthdays in any year.
+        payload["birthdays"] = query_db(
+            """
+            SELECT player_id, name, birth_date, hof, from_year, to_year
+            FROM player
+            WHERE strftime('%m-%d', birth_date) = ?
+            ORDER BY hof DESC, career_points DESC
+            LIMIT 8
+            """,
+            (today.strftime("%m-%d"),),
+        )
+
+        # Pick today's category, grab the 100 best qualifying seasons ever for
+        # it, then use the day-of-year to select one. games >= 40 filters out
+        # tiny-sample seasons that would make the "record" misleading.
+        day_number = today.timetuple().tm_yday
+        column, label = STAT_OF_DAY_CATEGORIES[
+            day_number % len(STAT_OF_DAY_CATEGORIES)
+        ]
+        rows = query_db(
+            f"""
+            SELECT player_id, name, season, team, {column} AS value
+            FROM player_season
+            WHERE games >= 40 AND {column} IS NOT NULL
+            ORDER BY {column} DESC
+            LIMIT 100
+            """
+        )
+        payload["stat_of_day"] = (
+            {**rows[day_number % len(rows)], "label": label} if rows else None
+        )
+    except sqlite3.OperationalError:
+        # No nba.db yet - the dashboard still renders its other panels.
+        payload["birthdays"] = []
+        payload["stat_of_day"] = None
+
+    return jsonify(payload)
+
+
 def _normalize_name(name):
     """Make a player name comparable across our two data sources.
 
