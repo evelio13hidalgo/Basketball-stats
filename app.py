@@ -470,6 +470,106 @@ def _franchise_history(espn_abbr):
         return None
 
 
+# ---------------------------------------------------------------------------
+# Championships (curated data - no API offers this cleanly)
+# ---------------------------------------------------------------------------
+# Every NBA (and 1947-49 BAA) Finals result. "champion" is the team's name AT
+# THE TIME ("Seattle SuperSonics"); "franchise" is the ESPN abbreviation of
+# the CURRENT team that owns the title (SEA's ring belongs to OKC), matching
+# the franchise-lineage idea used in FRANCHISE_CODES. franchise=None means the
+# champion folded entirely (the original Baltimore Bullets).
+# Finals MVP only exists from 1969 on, so earlier years use None.
+# MAINTENANCE: add a new entry at the TOP each June.
+CHAMPIONSHIPS = [
+    {"year": 2026, "champion": "New York Knicks", "franchise": "NY", "runner_up": "San Antonio Spurs", "result": "4-1", "mvp": None},
+    {"year": 2025, "champion": "Oklahoma City Thunder", "franchise": "OKC", "runner_up": "Indiana Pacers", "result": "4-3", "mvp": "Shai Gilgeous-Alexander"},
+    {"year": 2024, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Dallas Mavericks", "result": "4-1", "mvp": "Jaylen Brown"},
+    {"year": 2023, "champion": "Denver Nuggets", "franchise": "DEN", "runner_up": "Miami Heat", "result": "4-1", "mvp": "Nikola Jokic"},
+    {"year": 2022, "champion": "Golden State Warriors", "franchise": "GS", "runner_up": "Boston Celtics", "result": "4-2", "mvp": "Stephen Curry"},
+    {"year": 2021, "champion": "Milwaukee Bucks", "franchise": "MIL", "runner_up": "Phoenix Suns", "result": "4-2", "mvp": "Giannis Antetokounmpo"},
+    {"year": 2020, "champion": "Los Angeles Lakers", "franchise": "LAL", "runner_up": "Miami Heat", "result": "4-2", "mvp": "LeBron James"},
+    {"year": 2019, "champion": "Toronto Raptors", "franchise": "TOR", "runner_up": "Golden State Warriors", "result": "4-2", "mvp": "Kawhi Leonard"},
+    {"year": 2018, "champion": "Golden State Warriors", "franchise": "GS", "runner_up": "Cleveland Cavaliers", "result": "4-0", "mvp": "Kevin Durant"},
+    {"year": 2017, "champion": "Golden State Warriors", "franchise": "GS", "runner_up": "Cleveland Cavaliers", "result": "4-1", "mvp": "Kevin Durant"},
+    {"year": 2016, "champion": "Cleveland Cavaliers", "franchise": "CLE", "runner_up": "Golden State Warriors", "result": "4-3", "mvp": "LeBron James"},
+    {"year": 2015, "champion": "Golden State Warriors", "franchise": "GS", "runner_up": "Cleveland Cavaliers", "result": "4-2", "mvp": "Andre Iguodala"},
+    {"year": 2014, "champion": "San Antonio Spurs", "franchise": "SA", "runner_up": "Miami Heat", "result": "4-1", "mvp": "Kawhi Leonard"},
+    {"year": 2013, "champion": "Miami Heat", "franchise": "MIA", "runner_up": "San Antonio Spurs", "result": "4-3", "mvp": "LeBron James"},
+    {"year": 2012, "champion": "Miami Heat", "franchise": "MIA", "runner_up": "Oklahoma City Thunder", "result": "4-1", "mvp": "LeBron James"},
+    {"year": 2011, "champion": "Dallas Mavericks", "franchise": "DAL", "runner_up": "Miami Heat", "result": "4-2", "mvp": "Dirk Nowitzki"},
+    {"year": 2010, "champion": "Los Angeles Lakers", "franchise": "LAL", "runner_up": "Boston Celtics", "result": "4-3", "mvp": "Kobe Bryant"},
+    {"year": 2009, "champion": "Los Angeles Lakers", "franchise": "LAL", "runner_up": "Orlando Magic", "result": "4-1", "mvp": "Kobe Bryant"},
+    {"year": 2008, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Los Angeles Lakers", "result": "4-2", "mvp": "Paul Pierce"},
+    {"year": 2007, "champion": "San Antonio Spurs", "franchise": "SA", "runner_up": "Cleveland Cavaliers", "result": "4-0", "mvp": "Tony Parker"},
+    {"year": 2006, "champion": "Miami Heat", "franchise": "MIA", "runner_up": "Dallas Mavericks", "result": "4-2", "mvp": "Dwyane Wade"},
+    {"year": 2005, "champion": "San Antonio Spurs", "franchise": "SA", "runner_up": "Detroit Pistons", "result": "4-3", "mvp": "Tim Duncan"},
+    {"year": 2004, "champion": "Detroit Pistons", "franchise": "DET", "runner_up": "Los Angeles Lakers", "result": "4-1", "mvp": "Chauncey Billups"},
+    {"year": 2003, "champion": "San Antonio Spurs", "franchise": "SA", "runner_up": "New Jersey Nets", "result": "4-2", "mvp": "Tim Duncan"},
+    {"year": 2002, "champion": "Los Angeles Lakers", "franchise": "LAL", "runner_up": "New Jersey Nets", "result": "4-0", "mvp": "Shaquille O'Neal"},
+    {"year": 2001, "champion": "Los Angeles Lakers", "franchise": "LAL", "runner_up": "Philadelphia 76ers", "result": "4-1", "mvp": "Shaquille O'Neal"},
+    {"year": 2000, "champion": "Los Angeles Lakers", "franchise": "LAL", "runner_up": "Indiana Pacers", "result": "4-2", "mvp": "Shaquille O'Neal"},
+    {"year": 1999, "champion": "San Antonio Spurs", "franchise": "SA", "runner_up": "New York Knicks", "result": "4-1", "mvp": "Tim Duncan"},
+    {"year": 1998, "champion": "Chicago Bulls", "franchise": "CHI", "runner_up": "Utah Jazz", "result": "4-2", "mvp": "Michael Jordan"},
+    {"year": 1997, "champion": "Chicago Bulls", "franchise": "CHI", "runner_up": "Utah Jazz", "result": "4-2", "mvp": "Michael Jordan"},
+    {"year": 1996, "champion": "Chicago Bulls", "franchise": "CHI", "runner_up": "Seattle SuperSonics", "result": "4-2", "mvp": "Michael Jordan"},
+    {"year": 1995, "champion": "Houston Rockets", "franchise": "HOU", "runner_up": "Orlando Magic", "result": "4-0", "mvp": "Hakeem Olajuwon"},
+    {"year": 1994, "champion": "Houston Rockets", "franchise": "HOU", "runner_up": "New York Knicks", "result": "4-3", "mvp": "Hakeem Olajuwon"},
+    {"year": 1993, "champion": "Chicago Bulls", "franchise": "CHI", "runner_up": "Phoenix Suns", "result": "4-2", "mvp": "Michael Jordan"},
+    {"year": 1992, "champion": "Chicago Bulls", "franchise": "CHI", "runner_up": "Portland Trail Blazers", "result": "4-2", "mvp": "Michael Jordan"},
+    {"year": 1991, "champion": "Chicago Bulls", "franchise": "CHI", "runner_up": "Los Angeles Lakers", "result": "4-1", "mvp": "Michael Jordan"},
+    {"year": 1990, "champion": "Detroit Pistons", "franchise": "DET", "runner_up": "Portland Trail Blazers", "result": "4-1", "mvp": "Isiah Thomas"},
+    {"year": 1989, "champion": "Detroit Pistons", "franchise": "DET", "runner_up": "Los Angeles Lakers", "result": "4-0", "mvp": "Joe Dumars"},
+    {"year": 1988, "champion": "Los Angeles Lakers", "franchise": "LAL", "runner_up": "Detroit Pistons", "result": "4-3", "mvp": "James Worthy"},
+    {"year": 1987, "champion": "Los Angeles Lakers", "franchise": "LAL", "runner_up": "Boston Celtics", "result": "4-2", "mvp": "Magic Johnson"},
+    {"year": 1986, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Houston Rockets", "result": "4-2", "mvp": "Larry Bird"},
+    {"year": 1985, "champion": "Los Angeles Lakers", "franchise": "LAL", "runner_up": "Boston Celtics", "result": "4-2", "mvp": "Kareem Abdul-Jabbar"},
+    {"year": 1984, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Los Angeles Lakers", "result": "4-3", "mvp": "Larry Bird"},
+    {"year": 1983, "champion": "Philadelphia 76ers", "franchise": "PHI", "runner_up": "Los Angeles Lakers", "result": "4-0", "mvp": "Moses Malone"},
+    {"year": 1982, "champion": "Los Angeles Lakers", "franchise": "LAL", "runner_up": "Philadelphia 76ers", "result": "4-2", "mvp": "Magic Johnson"},
+    {"year": 1981, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Houston Rockets", "result": "4-2", "mvp": "Cedric Maxwell"},
+    {"year": 1980, "champion": "Los Angeles Lakers", "franchise": "LAL", "runner_up": "Philadelphia 76ers", "result": "4-2", "mvp": "Magic Johnson"},
+    {"year": 1979, "champion": "Seattle SuperSonics", "franchise": "OKC", "runner_up": "Washington Bullets", "result": "4-1", "mvp": "Dennis Johnson"},
+    {"year": 1978, "champion": "Washington Bullets", "franchise": "WSH", "runner_up": "Seattle SuperSonics", "result": "4-3", "mvp": "Wes Unseld"},
+    {"year": 1977, "champion": "Portland Trail Blazers", "franchise": "POR", "runner_up": "Philadelphia 76ers", "result": "4-2", "mvp": "Bill Walton"},
+    {"year": 1976, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Phoenix Suns", "result": "4-2", "mvp": "Jo Jo White"},
+    {"year": 1975, "champion": "Golden State Warriors", "franchise": "GS", "runner_up": "Washington Bullets", "result": "4-0", "mvp": "Rick Barry"},
+    {"year": 1974, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Milwaukee Bucks", "result": "4-3", "mvp": "John Havlicek"},
+    {"year": 1973, "champion": "New York Knicks", "franchise": "NY", "runner_up": "Los Angeles Lakers", "result": "4-1", "mvp": "Willis Reed"},
+    {"year": 1972, "champion": "Los Angeles Lakers", "franchise": "LAL", "runner_up": "New York Knicks", "result": "4-1", "mvp": "Wilt Chamberlain"},
+    {"year": 1971, "champion": "Milwaukee Bucks", "franchise": "MIL", "runner_up": "Baltimore Bullets", "result": "4-0", "mvp": "Kareem Abdul-Jabbar"},
+    {"year": 1970, "champion": "New York Knicks", "franchise": "NY", "runner_up": "Los Angeles Lakers", "result": "4-3", "mvp": "Willis Reed"},
+    {"year": 1969, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Los Angeles Lakers", "result": "4-3", "mvp": "Jerry West"},
+    {"year": 1968, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Los Angeles Lakers", "result": "4-2", "mvp": None},
+    {"year": 1967, "champion": "Philadelphia 76ers", "franchise": "PHI", "runner_up": "San Francisco Warriors", "result": "4-2", "mvp": None},
+    {"year": 1966, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Los Angeles Lakers", "result": "4-3", "mvp": None},
+    {"year": 1965, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Los Angeles Lakers", "result": "4-1", "mvp": None},
+    {"year": 1964, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "San Francisco Warriors", "result": "4-1", "mvp": None},
+    {"year": 1963, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Los Angeles Lakers", "result": "4-2", "mvp": None},
+    {"year": 1962, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Los Angeles Lakers", "result": "4-3", "mvp": None},
+    {"year": 1961, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "St. Louis Hawks", "result": "4-1", "mvp": None},
+    {"year": 1960, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "St. Louis Hawks", "result": "4-3", "mvp": None},
+    {"year": 1959, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "Minneapolis Lakers", "result": "4-0", "mvp": None},
+    {"year": 1958, "champion": "St. Louis Hawks", "franchise": "ATL", "runner_up": "Boston Celtics", "result": "4-2", "mvp": None},
+    {"year": 1957, "champion": "Boston Celtics", "franchise": "BOS", "runner_up": "St. Louis Hawks", "result": "4-3", "mvp": None},
+    {"year": 1956, "champion": "Philadelphia Warriors", "franchise": "GS", "runner_up": "Fort Wayne Pistons", "result": "4-1", "mvp": None},
+    {"year": 1955, "champion": "Syracuse Nationals", "franchise": "PHI", "runner_up": "Fort Wayne Pistons", "result": "4-3", "mvp": None},
+    {"year": 1954, "champion": "Minneapolis Lakers", "franchise": "LAL", "runner_up": "Syracuse Nationals", "result": "4-3", "mvp": None},
+    {"year": 1953, "champion": "Minneapolis Lakers", "franchise": "LAL", "runner_up": "New York Knicks", "result": "4-1", "mvp": None},
+    {"year": 1952, "champion": "Minneapolis Lakers", "franchise": "LAL", "runner_up": "New York Knicks", "result": "4-3", "mvp": None},
+    {"year": 1951, "champion": "Rochester Royals", "franchise": "SAC", "runner_up": "New York Knicks", "result": "4-3", "mvp": None},
+    {"year": 1950, "champion": "Minneapolis Lakers", "franchise": "LAL", "runner_up": "Syracuse Nationals", "result": "4-2", "mvp": None},
+    {"year": 1949, "champion": "Minneapolis Lakers", "franchise": "LAL", "runner_up": "Washington Capitols", "result": "4-2", "mvp": None},
+    {"year": 1948, "champion": "Baltimore Bullets", "franchise": None, "runner_up": "Philadelphia Warriors", "result": "4-2", "mvp": None},
+    {"year": 1947, "champion": "Philadelphia Warriors", "franchise": "GS", "runner_up": "Chicago Stags", "result": "4-1", "mvp": None},
+]
+
+
+@app.route("/api/championships")
+def get_championships():
+    """Every Finals result, newest first. Pure local data - no network, no DB."""
+    return jsonify({"championships": CHAMPIONSHIPS})
+
+
 def _normalize_name(name):
     """Make a player name comparable across our two data sources.
 
@@ -672,7 +772,12 @@ def team_detail(team_id):
         return jsonify({"error": f"Could not reach ESPN: {e}"}), 502
 
     history = _franchise_history(detail["abbreviation"])
-    return jsonify({**detail, "history": history})
+    # This franchise's championship years (newest first), for the trophy line.
+    titles = [
+        c["year"] for c in CHAMPIONSHIPS
+        if c["franchise"] == detail["abbreviation"]
+    ]
+    return jsonify({**detail, "history": history, "titles": titles})
 
 
 @app.route("/api/players")

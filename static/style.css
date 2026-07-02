@@ -1076,6 +1076,19 @@ table.season-table {
   margin: 12px 0 20px;
 }
 
+/* 12. Titles tab ---------------------------------------------------------- */
+/* Banner-count board on the left, full Finals timeline on the right. */
+.titles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .titles-grid { grid-template-columns: 1fr; }
+}
+
 /* 10. Responsive --------------------------------------------------------- */
 @media (max-width: 700px) {
   .standings-grid,

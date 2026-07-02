@@ -42,6 +42,7 @@ tabButtons.forEach((btn) => {
       loadedTabs.add(target);
       if (target === "standings") loadStandings();
       if (target === "teams") loadTeamsGrid();
+      if (target === "titles") loadTitles();
       if (target === "leaders") initLeaders();
       if (target === "players") initPlayerSearch();
       if (target === "compare") initCompare();
@@ -820,6 +821,16 @@ function teamPageHTML(data, meta) {
   const subParts = [];
   if (data.coach) subParts.push(`Head coach: ${esc(data.coach)}`);
   subParts.push(`${data.roster.length} players`);
+  // Trophy case: "3x champions (2013, 2012, 2006)". Long dynasties get their
+  // year list trimmed with a "+N more" so the header stays one line.
+  if (data.titles && data.titles.length) {
+    const years = data.titles.slice(0, 6).join(", ");
+    const extra =
+      data.titles.length > 6 ? ` +${data.titles.length - 6} more` : "";
+    subParts.push(
+      `&#127942; ${data.titles.length}x champions (${esc(years)}${extra})`
+    );
+  }
 
   return `
     <button class="refresh-btn back-btn" onclick="loadTeamsGrid()">&larr; All teams</button>
@@ -848,6 +859,123 @@ function teamPageHTML(data, meta) {
         </div>
       </div>
       <div>${franchiseHistoryHTML(data.history)}</div>
+    </div>`;
+}
+
+/* ---------------------------------------------------------------------------
+   Titles tab - every championship since 1947, plus a count-by-franchise board
+   --------------------------------------------------------------------------- */
+const titlesView = document.getElementById("titles-view");
+
+// Make sure the 30-team list is loaded (the Teams tab may not have been
+// opened yet); we use it to put logos next to franchises.
+async function ensureTeams() {
+  if (!teamsCache) {
+    const res = await fetch("/api/teams");
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    teamsCache = data.teams;
+  }
+  return teamsCache;
+}
+
+function teamByAbbr(abbr) {
+  return (teamsCache || []).find((t) => t.abbreviation === abbr);
+}
+
+async function loadTitles() {
+  titlesView.innerHTML = skeletonLines(8);
+  try {
+    const [, res] = await Promise.all([
+      ensureTeams(),
+      fetch("/api/championships"),
+    ]);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    titlesView.innerHTML = titlesHTML(data.championships);
+    animateBars(titlesView);
+  } catch (err) {
+    titlesView.innerHTML = `<div class="error-state">${esc(err.message)}</div>`;
+  }
+}
+
+// Count titles per CURRENT franchise. A plain object keyed by the ESPN
+// abbreviation does the tallying; defunct champions (franchise=null) are
+// skipped here but still appear in the year-by-year list.
+function titleCounts(championships) {
+  const counts = {};
+  championships.forEach((c) => {
+    if (c.franchise) counts[c.franchise] = (counts[c.franchise] || 0) + 1;
+  });
+  return Object.entries(counts)
+    .map(([abbr, count]) => ({ abbr, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function titlesHTML(championships) {
+  const counts = titleCounts(championships);
+  const max = counts.length ? counts[0].count : 1;
+
+  // Left panel: banner counts, styled like the leaderboards.
+  const countRows = counts
+    .map((c, i) => {
+      const team = teamByAbbr(c.abbr) || {};
+      const rankClass = i < 3 ? `rank-${i + 1}` : "";
+      return `
+      <div class="leader-row ${rankClass} fade-in-up" style="animation-delay:${
+        i * 30
+      }ms" onclick="openTeam('${esc(team.id || "")}')">
+        <img class="mini-logo" src="${esc(team.logo || "")}" alt="">
+        <div class="leader-main">
+          <div class="leader-name">${esc(team.name || c.abbr)}</div>
+          <div class="leader-bar-track">
+            <div class="leader-bar-fill" data-width="${(c.count / max) * 100}"
+              style="width:0"></div>
+          </div>
+        </div>
+        <div class="leader-value">${c.count} &#127942;</div>
+      </div>`;
+    })
+    .join("");
+
+  // Right panel: the full Finals timeline, newest first.
+  const timelineRows = championships
+    .map((c) => {
+      const team = c.franchise ? teamByAbbr(c.franchise) : null;
+      const logo = team
+        ? `<img class="mini-logo" src="${esc(team.logo)}" alt="">`
+        : "";
+      return `
+      <tr>
+        <td class="num"><strong>${esc(c.year)}</strong></td>
+        <td><div class="team-cell">${logo}<span>${esc(c.champion)}</span></div></td>
+        <td class="num">${esc(c.result)}</td>
+        <td>${esc(c.runner_up)}</td>
+        <td>${esc(c.mvp || "-")}</td>
+      </tr>`;
+    })
+    .join("");
+
+  return `
+    <div class="titles-grid">
+      <div>
+        <h3 class="conference-title">Titles by Franchise</h3>
+        <div class="leaders-grid">${countRows}</div>
+      </div>
+      <div>
+        <h3 class="conference-title">Every Finals Since 1947</h3>
+        <div class="standings-table-wrap">
+          <table class="standings-table">
+            <thead>
+              <tr>
+                <th class="num">Year</th><th>Champion</th><th class="num">Series</th>
+                <th>Runner-up</th><th>Finals MVP</th>
+              </tr>
+            </thead>
+            <tbody>${timelineRows}</tbody>
+          </table>
+        </div>
+      </div>
     </div>`;
 }
 
