@@ -1077,6 +1077,18 @@ table.season-table {
 }
 
 /* 12. Titles tab ---------------------------------------------------------- */
+/* Team logos inside leaderboard rows and table cells. Without a size cap the
+   raw ESPN logo file (500x500) would fill the row and crowd everything else
+   out - images always need explicit dimensions when they live in a grid. */
+.leader-row .mini-logo,
+.team-cell .mini-logo {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  justify-self: center;
+  flex-shrink: 0;
+}
+
 /* Banner-count board on the left, full Finals timeline on the right. */
 .titles-grid {
   display: grid;
