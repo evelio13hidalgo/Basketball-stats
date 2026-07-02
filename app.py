@@ -25,6 +25,7 @@ from datetime import date, timedelta
 import os
 import sqlite3
 import time
+import unicodedata
 
 import requests
 from flask import Flask, jsonify, render_template, request
@@ -463,6 +464,40 @@ def _franchise_history(espn_abbr):
         return None
 
 
+def _normalize_name(name):
+    """Make a player name comparable across our two data sources.
+
+    ESPN spells names plain-ASCII ("Luka Doncic", "Kristaps Porzingis") while
+    Basketball-Reference keeps the accents ("Luka Dončić"). Unicode NFKD
+    decomposition splits an accented letter into base letter + accent mark, and
+    dropping the "combining" marks leaves just the base letters. We also drop
+    periods (P.J. vs PJ) and lowercase everything.
+    """
+    decomposed = unicodedata.normalize("NFKD", name or "")
+    ascii_only = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    return ascii_only.lower().replace(".", "").strip()
+
+
+def _specific_positions_by_name():
+    """Map normalized player name -> specific position (PG/SG/SF/PF/C).
+
+    ESPN's roster endpoint only labels players Guard/Forward/Center, which
+    isn't much of an answer to "who's the point guard?". Our local database
+    records the SPECIFIC position for every season, so we read the last couple
+    of seasons and keep each player's most recent entry (the rows are ordered
+    oldest-first, so newer seasons overwrite older ones as we build the dict).
+    """
+    rows = query_db(
+        """
+        SELECT name, position
+        FROM player_season
+        WHERE season >= 2024 AND position != 'NA'
+        ORDER BY season
+        """
+    )
+    return {_normalize_name(r["name"]): r["position"] for r in rows}
+
+
 @app.route("/api/teams")
 def get_teams():
     """All 30 current NBA teams, for the team directory grid.
@@ -544,6 +579,21 @@ def team_detail(team_id):
                 "experience": experience.get("years", 0),
             })
         players.sort(key=lambda p: p["name"])
+
+        # Upgrade ESPN's generic G/F labels to real positions (PG/SG/SF/PF)
+        # from the local database. Players we can't match - mostly rookies who
+        # haven't logged an NBA season yet - keep the generic label.
+        try:
+            specific = get_cached(
+                "positions_by_name", _specific_positions_by_name, ttl=86400
+            )
+        except sqlite3.OperationalError:
+            specific = {}  # no nba.db - generic labels are still fine
+        for p in players:
+            if p["position"] in ("G", "F", ""):
+                better = specific.get(_normalize_name(p["name"]))
+                if better:
+                    p["position"] = better
 
         # ESPN has sent the coach as both a dict and a list-of-dicts over
         # time, so accept either shape.
