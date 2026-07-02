@@ -41,6 +41,7 @@ tabButtons.forEach((btn) => {
     if (!loadedTabs.has(target)) {
       loadedTabs.add(target);
       if (target === "standings") loadStandings();
+      if (target === "teams") loadTeamsGrid();
       if (target === "leaders") initLeaders();
       if (target === "players") initPlayerSearch();
       if (target === "compare") initCompare();
@@ -611,6 +612,169 @@ async function loadStandings() {
       err.message
     )}</div>`;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Teams tab - team directory, then per-team roster + franchise history
+   --------------------------------------------------------------------------- */
+const teamsView = document.getElementById("teams-view");
+
+// The 30-team list changes roughly never, so fetch it once per page load and
+// keep it around. It also doubles as our lookup for logos/colors when we
+// render a single team's page.
+let teamsCache = null;
+
+async function loadTeamsGrid() {
+  teamsView.innerHTML = `<div class="loading">Loading teams...</div>`;
+  try {
+    if (!teamsCache) {
+      const res = await fetch("/api/teams");
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      teamsCache = data.teams;
+    }
+    // One tile per team. Each tile carries its own team color as a CSS custom
+    // property (--team-color) so the stylesheet can use it for accents without
+    // us writing 30 color rules.
+    teamsView.innerHTML =
+      `<div class="teams-grid">` +
+      teamsCache
+        .map(
+          (t, i) => `
+        <button class="team-tile fade-in-up"
+          style="--team-color:#${esc(t.color)}; animation-delay:${i * 20}ms"
+          onclick="openTeam('${esc(t.id)}')">
+          <img class="team-tile-logo" src="${esc(t.logo)}" alt="" loading="lazy">
+          <span class="team-tile-loc">${esc(t.location)}</span>
+          <span class="team-tile-name">${esc(t.nickname)}</span>
+        </button>`
+        )
+        .join("") +
+      `</div>`;
+  } catch (err) {
+    teamsView.innerHTML = `<div class="error-state">${esc(err.message)}</div>`;
+  }
+}
+
+async function openTeam(teamId) {
+  // Logo and color come from the grid data we already fetched; the roster
+  // endpoint doesn't repeat them.
+  const meta =
+    (teamsCache || []).find((t) => String(t.id) === String(teamId)) || {};
+  teamsView.innerHTML = skeletonLines(8);
+  try {
+    const res = await fetch(`/api/teams/${teamId}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    teamsView.innerHTML = teamPageHTML(data, meta);
+    animateBars(teamsView); // grow the franchise-leader bars
+  } catch (err) {
+    teamsView.innerHTML = `<div class="error-state">${esc(err.message)}</div>`;
+  }
+}
+
+// One roster row: headshot photo, name, and the bio columns. ESPN hosts a
+// real photo for nearly every current player; if one is missing we show a
+// little basketball instead (onerror catches broken image URLs too).
+function rosterRowHTML(p) {
+  const photo = p.headshot
+    ? `<img class="roster-headshot" src="${esc(p.headshot)}" alt=""
+         loading="lazy" onerror="this.outerHTML='<span class=\\'roster-headshot roster-headshot-blank\\'>&#127936;</span>'">`
+    : `<span class="roster-headshot roster-headshot-blank">&#127936;</span>`;
+  return `
+    <tr>
+      <td class="num">${esc(p.jersey || "-")}</td>
+      <td><div class="team-cell">${photo}<span>${esc(p.name)}</span></div></td>
+      <td class="num">${esc(p.position || "-")}</td>
+      <td class="num">${esc(fmt(p.age))}</td>
+      <td class="num">${esc(p.height || "-")}</td>
+      <td class="num">${esc(p.weight || "-")}</td>
+      <td>${esc(p.college || "-")}</td>
+    </tr>`;
+}
+
+// The franchise-history side panel: headline facts + all-time scoring
+// leaders. The leaders reuse the leader-row look from the Leaders tab, and
+// clicking one jumps to that player's full profile (they're in our local DB).
+function franchiseHistoryHTML(h) {
+  if (!h) return "";
+  const legends = h.legends || [];
+  const max = Math.max(...legends.map((l) => l.total_points), 1);
+
+  const legendRows = legends
+    .map((l, i) => {
+      const pct = (l.total_points / max) * 100;
+      const rankClass = i < 3 ? `rank-${i + 1}` : "";
+      return `
+      <div class="leader-row ${rankClass} fade-in-up" style="animation-delay:${
+        i * 40
+      }ms" onclick="openPlayer('${esc(l.player_id)}')">
+        <div class="leader-rank">${i + 1}</div>
+        <div class="leader-main">
+          <div class="leader-name">${esc(l.name)}${
+        l.hof ? ' <span class="hof-badge">HOF</span>' : ""
+      }</div>
+          <div class="leader-sub">${esc(seasonLabel(l.from_year))} to ${esc(
+        seasonLabel(l.to_year)
+      )}</div>
+          <div class="leader-bar-track">
+            <div class="leader-bar-fill" data-width="${pct}" style="width:0"></div>
+          </div>
+        </div>
+        <div class="leader-value">${l.total_points.toLocaleString()}</div>
+      </div>`;
+    })
+    .join("");
+
+  return `
+    <div class="history-panel">
+      <div class="spotlight-eyebrow">Franchise history</div>
+      <div class="legend-statline history-facts">
+        <div class="ls"><div class="ls-num">${esc(
+          seasonLabel(h.first_season)
+        )}</div><div class="ls-lab">First season</div></div>
+        <div class="ls"><div class="ls-num">${esc(h.seasons)}</div><div class="ls-lab">Seasons</div></div>
+        <div class="ls"><div class="ls-num">${esc(h.players)}</div><div class="ls-lab">Players</div></div>
+        <div class="ls"><div class="ls-num">${esc(h.hof_count)}</div><div class="ls-lab">Hall of Famers</div></div>
+      </div>
+      <div class="spotlight-eyebrow">All-time scoring leaders</div>
+      <div class="leaders-grid">${legendRows}</div>
+    </div>`;
+}
+
+function teamPageHTML(data, meta) {
+  const color = meta.color ? `#${meta.color}` : "var(--accent)";
+  const subParts = [];
+  if (data.coach) subParts.push(`Head coach: ${esc(data.coach)}`);
+  subParts.push(`${data.roster.length} players`);
+
+  return `
+    <button class="refresh-btn back-btn" onclick="loadTeamsGrid()">&larr; All teams</button>
+    <div class="team-page-head" style="--team-color:${esc(color)}">
+      <img class="team-page-logo" src="${esc(meta.logo || "")}" alt="">
+      <div>
+        <div class="player-name">${esc(data.name)}</div>
+        <div class="player-bio">${subParts.join(" &middot; ")}</div>
+      </div>
+    </div>
+    <div class="team-page-grid">
+      <div>
+        <h3 class="conference-title" style="border-color:${esc(color)}">Current Roster</h3>
+        <div class="standings-table-wrap">
+          <table class="standings-table roster-table">
+            <thead>
+              <tr>
+                <th class="num">#</th><th>Player</th><th class="num">Pos</th>
+                <th class="num">Age</th><th class="num">Ht</th>
+                <th class="num">Wt</th><th>College</th>
+              </tr>
+            </thead>
+            <tbody>${data.roster.map(rosterRowHTML).join("")}</tbody>
+          </table>
+        </div>
+      </div>
+      <div>${franchiseHistoryHTML(data.history)}</div>
+    </div>`;
 }
 
 /* ---------------------------------------------------------------------------

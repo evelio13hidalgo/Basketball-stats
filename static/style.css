@@ -908,6 +908,118 @@ table.season-table {
 .compare-a { color: #4aa3ff; }
 .compare-b { color: #ff6b6b; }
 
+/* 11. Teams tab ----------------------------------------------------------- */
+/* The 30-team directory. Each tile gets --team-color from an inline style so
+   one CSS rule here can accent all 30 tiles in their own colors. */
+.teams-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.team-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-bottom: 4px solid var(--team-color, var(--accent));
+  border-radius: var(--radius);
+  padding: 16px 10px 12px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.team-tile:hover {
+  transform: translateY(-3px);
+  border-color: var(--team-color, var(--accent));
+}
+
+.team-tile-logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  margin-bottom: 8px;
+  filter: drop-shadow(2px 2px 0 rgba(0, 0, 0, 0.4));
+}
+
+.team-tile-loc {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.team-tile-name {
+  font-family: var(--display);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+/* Single-team page: header banner, then roster table + history side panel. */
+.back-btn { margin-bottom: 16px; }
+
+.team-page-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 3px solid var(--team-color, var(--border));
+}
+
+.team-page-logo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  filter: drop-shadow(3px 3px 0 rgba(0, 0, 0, 0.45));
+}
+
+.team-page-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;   /* roster wider than the history panel */
+  gap: 24px;
+  align-items: start;
+}
+
+/* Tables can be wider than a phone screen; scroll sideways instead of
+   crushing the columns. */
+.standings-table-wrap { overflow-x: auto; }
+
+/* Player identity photos in the roster. Circle-cropped like a trading card. */
+.roster-headshot {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-2);
+  flex-shrink: 0;
+}
+
+.roster-headshot-blank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.history-panel {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+
+.history-facts {
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 12px 0 20px;
+}
+
 /* 10. Responsive --------------------------------------------------------- */
 @media (max-width: 700px) {
   .standings-grid,
@@ -916,4 +1028,8 @@ table.season-table {
   }
   .compare-pickers { grid-template-columns: 1fr; }
   .compare-vs { display: none; }
+}
+
+@media (max-width: 900px) {
+  .team-page-grid { grid-template-columns: 1fr; }  /* history below roster */
 }

@@ -44,6 +44,13 @@ ESPN_SCOREBOARD = (
 ESPN_STANDINGS = (
     "https://site.api.espn.com/apis/v2/sports/basketball/nba/standings"
 )
+ESPN_TEAMS = (
+    "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams"
+)
+# {team_id} is filled in per request, e.g. .../teams/14/roster for the Heat.
+ESPN_ROSTER = (
+    "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{team_id}/roster"
+)
 
 # Local SQLite database of historical player data (every player/season since
 # 1947). It is built by the separate `load_data.py` script, NOT by ESPN. We
@@ -334,6 +341,236 @@ def get_standings():
         return jsonify(result)
     except requests.RequestException as e:
         return jsonify({"error": f"Could not reach ESPN: {e}"}), 502
+
+
+# ---------------------------------------------------------------------------
+# Teams (current rosters from ESPN + franchise history from the local DB)
+# ---------------------------------------------------------------------------
+# The historical database uses Basketball-Reference team codes, and franchises
+# change codes when they move cities (Seattle SuperSonics "SEA" became Oklahoma
+# City "OKC") or when the code style simply differs from ESPN's ("GS" vs
+# "GSW"). This map connects each CURRENT team (keyed by ESPN's abbreviation)
+# to EVERY code that franchise has used since 1947, so "team history" means
+# the whole franchise, not just the current city.
+FRANCHISE_CODES = {
+    "ATL": ["ATL", "STL", "MLH", "TRI"],          # via St. Louis, Milwaukee, Tri-Cities
+    "BKN": ["BRK", "NJN", "NYN", "NJA", "NYA"],   # via New Jersey + ABA New York
+    "BOS": ["BOS"],
+    "CHA": ["CHO", "CHA", "CHH"],                 # incl. the Bobcats years
+    "CHI": ["CHI"],
+    "CLE": ["CLE"],
+    "DAL": ["DAL"],
+    "DEN": ["DEN", "DNA", "DNR"],                 # incl. ABA Denver Rockets
+    "DET": ["DET", "FTW"],                        # via Fort Wayne
+    "GS":  ["GSW", "SFW", "PHW"],                 # via San Francisco + Philadelphia
+    "HOU": ["HOU", "SDR"],                        # via San Diego
+    "IND": ["IND", "INA"],                        # incl. ABA Pacers
+    "LAC": ["LAC", "SDC", "BUF"],                 # via San Diego + Buffalo Braves
+    "LAL": ["LAL", "MNL"],                        # via Minneapolis
+    "MEM": ["MEM", "VAN"],                        # via Vancouver
+    "MIA": ["MIA"],
+    "MIL": ["MIL"],
+    "MIN": ["MIN"],
+    "NO":  ["NOP", "NOH", "NOK"],                 # incl. Hornets + post-Katrina OKC years
+    "NY":  ["NYK"],
+    "OKC": ["OKC", "SEA"],                        # via Seattle SuperSonics
+    "ORL": ["ORL"],
+    "PHI": ["PHI", "SYR"],                        # via Syracuse Nationals
+    "PHX": ["PHO"],
+    "POR": ["POR"],
+    "SAC": ["SAC", "KCK", "KCO", "CIN", "ROC"],   # all the way back to Rochester Royals
+    "SA":  ["SAS", "SAA", "TEX", "DLC"],          # incl. ABA Chaparrals years
+    "TOR": ["TOR"],
+    "UTAH": ["UTA", "NOJ"],                       # via New Orleans Jazz
+    "WSH": ["WAS", "WSB", "CAP", "BAL", "CHP", "CHZ"],  # Bullets lineage to Chicago Packers
+}
+
+
+def _franchise_history(espn_abbr):
+    """Summarize a franchise's whole past from the local player_season table.
+
+    Returns None (rather than raising) when we can't produce history - unknown
+    abbreviation or missing database - so the roster still renders without it.
+    """
+    codes = FRANCHISE_CODES.get(espn_abbr)
+    if not codes:
+        return None
+
+    # SQL "IN" needs one ? placeholder per code: IN (?,?,?). We build exactly
+    # that many - the values themselves still travel as bound parameters.
+    placeholders = ",".join("?" for _ in codes)
+
+    try:
+        # Headline facts: when the franchise first appears, how many seasons
+        # it has played, and how many players have ever suited up for it.
+        span = query_db(
+            f"""
+            SELECT MIN(season) AS first_season,
+                   MAX(season) AS last_season,
+                   COUNT(DISTINCT season) AS seasons,
+                   COUNT(DISTINCT player_id) AS players
+            FROM player_season
+            WHERE team IN ({placeholders})
+            """,
+            codes,
+            one=True,
+        )
+        if not span or span["first_season"] is None:
+            return None
+
+        # Franchise scoring leaders: same "per-game average x games" totalling
+        # trick as the all-time leaderboards, but restricted to this franchise.
+        legends = query_db(
+            f"""
+            SELECT p.player_id, p.name, p.hof,
+                   CAST(SUM(COALESCE(ps.points, 0) * COALESCE(ps.games, 0)) AS INTEGER)
+                       AS total_points,
+                   MIN(ps.season) AS from_year,
+                   MAX(ps.season) AS to_year
+            FROM player_season ps
+            JOIN player p ON p.player_id = ps.player_id
+            WHERE ps.team IN ({placeholders})
+            GROUP BY ps.player_id
+            HAVING total_points > 0
+            ORDER BY total_points DESC
+            LIMIT 8
+            """,
+            codes,
+        )
+
+        hof = query_db(
+            f"""
+            SELECT COUNT(DISTINCT ps.player_id) AS n
+            FROM player_season ps
+            JOIN player p ON p.player_id = ps.player_id
+            WHERE p.hof = 1 AND ps.team IN ({placeholders})
+            """,
+            codes,
+            one=True,
+        )
+
+        return {
+            "codes": codes,
+            "first_season": span["first_season"],
+            "last_season": span["last_season"],
+            "seasons": span["seasons"],
+            "players": span["players"],
+            "hof_count": hof["n"] if hof else 0,
+            "legends": legends,
+        }
+    except sqlite3.OperationalError:
+        # nba.db missing - the roster half of the page still works without us.
+        return None
+
+
+@app.route("/api/teams")
+def get_teams():
+    """All 30 current NBA teams, for the team directory grid.
+
+    Response shape:
+        { "teams": [ { id, abbreviation, name, location, nickname,
+                       color, logo }, ... ] }
+    """
+    def fetch():
+        response = requests.get(ESPN_TEAMS, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        raw = data["sports"][0]["leagues"][0]["teams"]
+
+        teams = []
+        for wrapper in raw:
+            team = wrapper["team"]
+            logos = team.get("logos") or []
+            teams.append({
+                "id": team.get("id"),
+                "abbreviation": team.get("abbreviation", ""),
+                "name": team.get("displayName", ""),
+                "location": team.get("location", ""),   # "Miami"
+                "nickname": team.get("name", ""),        # "Heat"
+                # ESPN sends colors as bare hex like "98002e"; the frontend
+                # prepends the "#". Fall back to NBA blue if a team lacks one.
+                "color": team.get("color", "1d428a"),
+                "logo": logos[0]["href"] if logos else "",
+            })
+        teams.sort(key=lambda t: t["name"])
+        return teams
+
+    try:
+        # The list of NBA teams changes roughly never; cache for a day.
+        teams = get_cached("teams", fetch, ttl=86400)
+        return jsonify({"teams": teams})
+    except requests.RequestException as e:
+        return jsonify({"error": f"Could not reach ESPN: {e}"}), 502
+
+
+@app.route("/api/teams/<team_id>")
+def team_detail(team_id):
+    """One team's current roster (from ESPN) + franchise history (local DB).
+
+    Response shape:
+        {
+          "abbreviation": "MIA",
+          "name": "Miami Heat",
+          "coach": "Erik Spoelstra",
+          "roster": [ { id, name, jersey, position, age, height, weight,
+                        college, headshot, experience }, ... ],
+          "history": { first_season, last_season, seasons, players,
+                       hof_count, legends: [...] }   # or null
+        }
+    """
+    def fetch():
+        response = requests.get(ESPN_ROSTER.format(team_id=team_id), timeout=15)
+        response.raise_for_status()
+        data = response.json()
+
+        players = []
+        for athlete in data.get("athletes", []):
+            # Most nested fields can be absent (rookies without photos, etc.),
+            # so we grab each sub-object defensively with `or {}`.
+            position = athlete.get("position") or {}
+            college = athlete.get("college") or {}
+            headshot = athlete.get("headshot") or {}
+            experience = athlete.get("experience") or {}
+            players.append({
+                "id": athlete.get("id"),
+                "name": athlete.get("fullName", ""),
+                "jersey": athlete.get("jersey", ""),
+                "position": position.get("abbreviation", ""),
+                "age": athlete.get("age"),
+                "height": athlete.get("displayHeight", ""),
+                "weight": athlete.get("displayWeight", ""),
+                "college": college.get("shortName") or college.get("name", ""),
+                "headshot": headshot.get("href", ""),
+                "experience": experience.get("years", 0),
+            })
+        players.sort(key=lambda p: p["name"])
+
+        # ESPN has sent the coach as both a dict and a list-of-dicts over
+        # time, so accept either shape.
+        coaches = data.get("coach") or []
+        if isinstance(coaches, dict):
+            coaches = [coaches]
+        coach = ""
+        if coaches:
+            first = coaches[0]
+            coach = f"{first.get('firstName', '')} {first.get('lastName', '')}".strip()
+
+        team = data.get("team") or {}
+        return {
+            "abbreviation": team.get("abbreviation", ""),
+            "name": team.get("displayName", ""),
+            "coach": coach,
+            "roster": players,
+        }
+
+    try:
+        # Rosters change on trades/signings, not minute to minute; 1h TTL.
+        detail = get_cached(f"roster_{team_id}", fetch, ttl=3600)
+    except requests.RequestException as e:
+        return jsonify({"error": f"Could not reach ESPN: {e}"}), 502
+
+    history = _franchise_history(detail["abbreviation"])
+    return jsonify({**detail, "history": history})
 
 
 @app.route("/api/players")
