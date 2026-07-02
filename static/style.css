@@ -540,11 +540,50 @@ table.standings-table {
   margin-left: 6px;
 }
 
-/* Player profile header (name + bio + career span). */
+/* Player profile header (photo + name + bio + career span). */
 .player-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   margin-bottom: 18px;
   padding-bottom: 14px;
   border-bottom: 2px solid var(--border);
+}
+
+.player-header-main { min-width: 0; }
+
+/* Trading-card style headshot: portrait crop, chunky border, hard shadow.
+   Basketball-Reference photos are roughly 2:3 portrait, so height > width. */
+.player-photo {
+  width: 66px;
+  height: 92px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: var(--surface-2);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+  flex-shrink: 0;
+}
+
+.player-photo-lg {
+  width: 84px;
+  height: 116px;
+}
+
+/* Same footprint as the photo, shown when a player has no picture. */
+.player-photo-blank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+}
+
+/* Photo + name/years side by side on the legend spotlight card. */
+.legend-id-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 4px;
 }
 
 .player-name {

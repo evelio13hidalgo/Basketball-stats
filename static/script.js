@@ -466,6 +466,22 @@ async function renderHome() {
   }
 }
 
+// Basketball-Reference hosts a headshot photo for nearly every player who
+// ever played - even 1950s guys - at a predictable URL built from the SAME
+// player_id our database uses (it's Basketball-Reference data, after all).
+// The visitor's browser loads the image straight from their server.
+function headshotURL(playerId) {
+  return `https://www.basketball-reference.com/req/202106291/images/headshots/${playerId}.jpg`;
+}
+
+// An <img> for a player photo that degrades gracefully: if the photo doesn't
+// exist (or their server is down), onerror swaps in a basketball placeholder
+// of the same size so the layout never jumps.
+function playerPhotoHTML(playerId, cls) {
+  return `<img class="${cls}" src="${esc(headshotURL(playerId))}" alt="" loading="lazy"
+    onerror="this.outerHTML='<span class=\\'${cls} player-photo-blank\\'>&#127936;</span>'">`;
+}
+
 // One featured Hall-of-Famer card (name, career line, peak season, links).
 function legendCardHTML(l) {
   const best = l.best_season;
@@ -474,10 +490,15 @@ function legendCardHTML(l) {
       <span class="spotlight-eyebrow">Featured Legend</span>
       <button class="shuffle-btn" onclick="shuffleLegend(this)">&#127922; Shuffle</button>
     </div>
-    <div class="legend-name">${esc(l.name)} <span class="hof-badge">HOF</span></div>
-    <div class="legend-years">${esc(l.from_year)}&ndash;${esc(l.to_year)} &middot; ${esc(
+    <div class="legend-id-row">
+      ${playerPhotoHTML(l.player_id, "player-photo")}
+      <div>
+        <div class="legend-name">${esc(l.name)} <span class="hof-badge">HOF</span></div>
+        <div class="legend-years">${esc(l.from_year)}&ndash;${esc(l.to_year)} &middot; ${esc(
     l.seasons_count
   )} seasons</div>
+      </div>
+    </div>
     <div class="legend-statline">
       <div class="ls"><div class="ls-num">${esc(l.career_ppg)}</div><div class="ls-lab">PPG</div></div>
       <div class="ls"><div class="ls-num">${esc(l.career_rpg)}</div><div class="ls-lab">RPG</div></div>
@@ -1092,17 +1113,20 @@ function renderPlayerProfile(player, seasons) {
 
   playerProfile.innerHTML = `
     <div class="player-header">
-      <div class="player-name-row">
-        <h3 class="player-name">${esc(player.name)}${
+      ${playerPhotoHTML(player.player_id, "player-photo player-photo-lg")}
+      <div class="player-header-main">
+        <div class="player-name-row">
+          <h3 class="player-name">${esc(player.name)}${
     player.hof ? ' <span class="hof-badge">HOF</span>' : ""
   }</h3>
-        <button class="fav-star ${fav ? "active" : ""}" title="Save to favorites"
-          onclick="toggleFavoriteCurrent(this)">${fav ? "★" : "☆"}</button>
-      </div>
-      <div class="player-bio">${bioParts.join(" &middot; ")}</div>
-      <div class="player-span">${esc(player.from_year)}&ndash;${esc(
+          <button class="fav-star ${fav ? "active" : ""}" title="Save to favorites"
+            onclick="toggleFavoriteCurrent(this)">${fav ? "★" : "☆"}</button>
+        </div>
+        <div class="player-bio">${bioParts.join(" &middot; ")}</div>
+        <div class="player-span">${esc(player.from_year)}&ndash;${esc(
     player.to_year
   )} &middot; ${seasons.length} season${seasons.length === 1 ? "" : "s"}</div>
+      </div>
     </div>
 
     <div class="chart-card">
